@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import { WebSocketServer, WebSocket } from "ws";
+import { createServer } from "http";
 
 const app = express();
 const PORT = 3001;
@@ -7,6 +9,10 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
+const httpServer = createServer(app);
+const wss = new WebSocketServer({ server: httpServer });
+
+// Генератор данных
 const generateData = () => ({
   value: Math.round(Math.random() * 100),
   timestamp: Date.now(),
@@ -39,7 +45,22 @@ app.get("/sse", (req, res) => {
 });
 
 // --- WEBSOCKET ---
+wss.on("connection", (ws) => {
+  console.log("WebSocket client connected");
 
-app.listen(PORT, () => {
+  const interval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      const data = generateData();
+      ws.send(JSON.stringify(data));
+    }
+  }, 1000);
+
+  ws.on("close", () => {
+    console.log("WebSocket client disconnected");
+    clearInterval(interval);
+  });
+});
+
+httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
